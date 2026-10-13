@@ -9,6 +9,7 @@
   "scripts": {
     "dev:frontend": "npm run dev --workspace shuffal",
     "dev:backend": "npm run dev --workspace conflict",
+    "start": "npm run start --workspace conflict",
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present"
   }
