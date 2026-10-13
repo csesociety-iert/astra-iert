@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: astra-api
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build --workspace conflict
+    startCommand: npm run start --workspace conflict
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: ASTRA_SESSION_SECRET
+        generateValue: true

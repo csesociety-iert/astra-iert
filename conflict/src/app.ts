@@ -12,6 +12,16 @@ export const app = express();
 
 app.disable("x-powered-by");
 app.use(cors({ origin: env.FRONTEND_ORIGIN, credentials: true }));
+app.use((request, response, next) => {
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
+    const origin = request.get("origin");
+    if (origin !== env.FRONTEND_ORIGIN) {
+      response.status(403).json({ error: "Request origin is not allowed." });
+      return;
+    }
+  }
+  next();
+});
 app.use(cookieParser());
 app.use(express.json({ limit: "100kb" }));
 app.use("/api/auth", authRouter);
