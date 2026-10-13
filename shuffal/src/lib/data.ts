@@ -10,6 +10,12 @@ export type Problem = {
   acceptance: number;
   description: string;
   topic: string;
+  inputFormat?: string;
+  outputFormat?: string;
+  constraints?: string;
+  sampleInput?: string;
+  sampleOutput?: string;
+  starterCode?: string;
 };
 
 export const problems: Problem[] = [
@@ -34,6 +40,29 @@ export const problems: Problem[] = [
     acceptance: 39,
     description: "Find the length of the longest substring without repeating characters.",
     topic: "Strings",
+    inputFormat: "A string s, provided on a single line.",
+    outputFormat: "Print the length of the longest substring of s that contains no repeating characters.",
+    constraints: "0 ≤ s.length ≤ 5 × 10^4",
+    sampleInput: "abcabcbb",
+    sampleOutput: "3",
+    starterCode: `import sys
+
+def length_of_longest_substring(s):
+    last_seen = {}
+    window_start = 0
+    longest = 0
+
+    for index, char in enumerate(s):
+        if char in last_seen and last_seen[char] >= window_start:
+            window_start = last_seen[char] + 1
+        last_seen[char] = index
+        longest = max(longest, index - window_start + 1)
+
+    return longest
+
+s = sys.stdin.readline().rstrip("\\r\\n")
+print(length_of_longest_substring(s))
+`,
   },
   {
     id: "AST-312",

@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Code2, KeyRound, ShieldCheck } from "lucide-react";
-import PortalFooter from "@/components/portal-footer";
 
 const journeySteps = [
   {
@@ -93,7 +92,6 @@ export function AuthShell({
         </section>
       </main>
 
-      <PortalFooter />
     </div>
   );
 }

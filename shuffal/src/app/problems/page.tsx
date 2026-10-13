@@ -1,9 +1,11 @@
 import { ProblemCard } from "@/components/problem-card";
+import { PortalShell } from "@/components/portal-shell";
 import { problems } from "@/lib/data";
 
 export default function ProblemsPage() {
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Problem library</p>
@@ -33,5 +35,6 @@ export default function ProblemsPage() {
         ))}
       </div>
     </main>
+    </PortalShell>
   );
 }

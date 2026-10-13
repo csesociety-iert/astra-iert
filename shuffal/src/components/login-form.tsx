@@ -28,10 +28,11 @@ export function LoginForm() {
     setError("");
     setBusy(true);
     try {
-      await apiRequest<LoginResponse>("/api/auth/login", {
+      const result = await apiRequest<LoginResponse>("/api/auth/login", {
         method: "POST",
         body: JSON.stringify({ identifier, password }),
       });
+      sessionStorage.setItem("astra-welcome-name", result.user.first_name?.trim() || "");
       router.replace("/dashboard");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Unable to sign in. Please try again.");

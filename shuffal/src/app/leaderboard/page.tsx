@@ -1,8 +1,10 @@
 import { leaderboard } from "@/lib/data";
+import { PortalShell } from "@/components/portal-shell";
 
 export default function LeaderboardPage() {
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">Rankings</p>
         <h1 className="mt-2 text-4xl font-bold text-white">Society leaderboard</h1>
@@ -33,5 +35,6 @@ export default function LeaderboardPage() {
         </table>
       </div>
     </main>
+    </PortalShell>
   );
 }

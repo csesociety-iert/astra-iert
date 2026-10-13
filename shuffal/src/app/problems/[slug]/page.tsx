@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CodeWorkspace } from "@/components/code-workspace";
+import { PortalShell } from "@/components/portal-shell";
 import { problems } from "@/lib/data";
 
-export default function ProblemDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = { slug: "two-sum" };
+export default async function ProblemDetailPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const problem = problems.find((entry) => entry.slug === slug);
 
   if (!problem) {
@@ -11,7 +13,8 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
   }
 
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-6 flex items-center gap-3 text-sm text-slate-400">
         <Link href="/problems" className="text-cyan-300 hover:text-cyan-200">Problems</Link>
         <span>/</span>
@@ -45,48 +48,33 @@ export default function ProblemDetailPage({ params }: { params: Promise<{ slug: 
             </div>
             <div>
               <h3 className="mb-2 font-semibold text-white">Input</h3>
-              <p>Input array and target value.</p>
+              <p>{problem.inputFormat ?? "Input array and target value."}</p>
             </div>
             <div>
               <h3 className="mb-2 font-semibold text-white">Output</h3>
-              <p>Return the indices of the two numbers that add up to the target.</p>
+              <p>{problem.outputFormat ?? "Return the indices of the two numbers that add up to the target."}</p>
             </div>
             <div>
               <h3 className="mb-2 font-semibold text-white">Constraints</h3>
-              <p>2 ≤ nums.length ≤ 10^4</p>
+              <p>{problem.constraints ?? "2 ≤ nums.length ≤ 10^4"}</p>
             </div>
+            {problem.sampleInput !== undefined && problem.sampleOutput !== undefined && (
+              <div>
+                <h3 className="mb-2 font-semibold text-white">Example</h3>
+                <p>Input: <code className="text-cyan-300">{problem.sampleInput}</code></p>
+                <p>Output: <code className="text-cyan-300">{problem.sampleOutput}</code></p>
+              </div>
+            )}
           </div>
         </section>
 
-        <aside className="panel p-6">
-          <div className="mb-5 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-white">Workspace</h2>
-            <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-xs text-cyan-200">Python</span>
-          </div>
-
-          <div className="space-y-4">
-            <textarea
-              value={`def two_sum(nums, target):
-    seen = {}
-    for i, num in enumerate(nums):
-        complement = target - num
-        if complement in seen:
-            return [seen[complement], i]
-        seen[num] = i
-    return []
-`}
-              className="h-72 w-full rounded-xl border border-slate-700 bg-slate-950/80 p-4 font-mono text-sm text-slate-100 outline-none ring-0"
-            />
-            <div className="flex gap-3">
-              <button className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm font-medium text-white">Run code</button>
-              <button className="flex-1 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950">Submit</button>
-            </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-sm text-slate-300">
-              Sample output: <span className="text-cyan-300">[0, 1]</span>
-            </div>
-          </div>
-        </aside>
+        <CodeWorkspace
+          starterCode={problem.starterCode}
+          sampleInput={problem.sampleInput}
+          sampleOutput={problem.sampleOutput}
+        />
       </div>
     </main>
+    </PortalShell>
   );
 }

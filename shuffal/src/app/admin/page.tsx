@@ -1,6 +1,9 @@
+import { PortalShell } from "@/components/portal-shell";
+
 export default function AdminPage() {
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Administration</p>
         <h1 className="mt-2 text-4xl font-bold text-white">Admin controls</h1>
@@ -19,5 +22,6 @@ export default function AdminPage() {
         ))}
       </div>
     </main>
+    </PortalShell>
   );
 }

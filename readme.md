@@ -11,6 +11,11 @@ App configuration: The project’s local .env.local uses NEXT_PUBLIC_SUPABASE_UR
 
 
 
+Strike-inspired monochrome futuristic coding dashboard” — a descriptive style name, not a specific template or framework.
+
+
+
+
 
 
 ASTRA — Competitive Programming Platform for CSE Society, IERT Prayagraj

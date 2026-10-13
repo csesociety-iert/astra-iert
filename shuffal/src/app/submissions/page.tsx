@@ -1,8 +1,10 @@
 import { submissions } from "@/lib/data";
+import { PortalShell } from "@/components/portal-shell";
 
 export default function SubmissionsPage() {
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-300">History</p>
         <h1 className="mt-2 text-4xl font-bold text-white">Submission history</h1>
@@ -36,5 +38,6 @@ export default function SubmissionsPage() {
         ))}
       </div>
     </main>
+    </PortalShell>
   );
 }

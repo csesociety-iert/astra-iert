@@ -20,10 +20,10 @@ export default function PortalFooter() {
         <section className="portal-institute">
           <Image
             className="portal-iert-emblem"
-            src="/iert-logo.jpg"
+            src="/iert-logo-footer.jpg"
             alt="Institute of Engineering and Rural Technology emblem"
             width={56}
-            height={68}
+            height={56}
           />
           <h2>Institute of Engineering and Rural Technology</h2>
           <p className="portal-address">

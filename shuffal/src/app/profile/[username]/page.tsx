@@ -1,8 +1,11 @@
-export default function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
-  const { username } = { username: "ananya" };
+import { PortalShell } from "@/components/portal-shell";
+
+export default async function ProfilePage({ params }: { params: Promise<{ username: string }> }) {
+  const { username } = await params;
 
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="panel p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-center">
           <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-cyan-500 to-violet-500 text-2xl font-bold text-white">
@@ -30,5 +33,6 @@ export default function ProfilePage({ params }: { params: Promise<{ username: st
         </div>
       </div>
     </main>
+    </PortalShell>
   );
 }

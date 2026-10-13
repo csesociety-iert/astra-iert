@@ -1,8 +1,10 @@
 import { contests } from "@/lib/data";
+import { PortalShell } from "@/components/portal-shell";
 
 export default function ContestsPage() {
   return (
-    <main className="container-shell py-10">
+    <PortalShell>
+    <main className="container-shell portal-content py-10">
       <div className="mb-8">
         <p className="text-xs uppercase tracking-[0.2em] text-violet-300">Competition</p>
         <h1 className="mt-2 text-4xl font-bold text-white">Contests</h1>
@@ -24,5 +26,6 @@ export default function ContestsPage() {
         ))}
       </div>
     </main>
+    </PortalShell>
   );
 }
