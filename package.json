@@ -1,0 +1,15 @@
+{
+  "name": "astra-cse-society-iert",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "shuffal",
+    "conflict"
+  ],
+  "scripts": {
+    "dev:frontend": "npm run dev --workspace shuffal",
+    "dev:backend": "npm run dev --workspace conflict",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  }
+}
