@@ -41,13 +41,24 @@ function completion(profile: Record<string, unknown>) {
   );
 }
 
+function getDisplayPhotoUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+
+  const photoUrl = value.trim();
+  if (!/^https?:\/\/(?:www\.)?drive\.google\.com\//i.test(photoUrl)) return photoUrl;
+
+  const fileId =
+    photoUrl.match(/\/file\/d\/([^/?#]+)/i)?.[1] ??
+    photoUrl.match(/[?&]id=([^&#]+)/i)?.[1];
+  return fileId
+    ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(fileId)}&sz=w256`
+    : photoUrl;
+}
+
 async function withAvatarUrl(profile: Record<string, unknown>) {
   const result: Record<string, unknown> = { ...profile, profile_complete: completion(profile) };
   if (profile.account_type === "member") {
-    const photograph = profile.student_photograph;
-    result.avatar_url = typeof photograph === "string" && photograph.trim()
-      ? photograph.trim()
-      : null;
+    result.avatar_url = getDisplayPhotoUrl(profile.student_photograph);
     return result;
   }
 
@@ -86,7 +97,11 @@ async function loadProfile(request: ExpressRequest) {
     .eq(env.MEMBER_PROFILE_ID_COLUMN, session.societyId ?? "")
     .single();
   if (error) throw error;
-  return { ...(data as Record<string, unknown>), account_type: "member" };
+  return {
+    ...(data as Record<string, unknown>),
+    society_id: session.societyId,
+    account_type: "member",
+  };
 }
 
 profileRouter.get("/me", requireSession, async (request, response, next) => {
