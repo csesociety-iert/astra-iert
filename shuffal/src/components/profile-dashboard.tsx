@@ -243,7 +243,14 @@ export function ProfileDashboard() {
         </nav>
         <div className="dashboard-account">
           <span className="dashboard-account-type">{isOutsider ? "Outsider account" : "Society member"}</span>
-          <span className="dashboard-avatar" aria-hidden="true">{(profile.first_name || profile.email).charAt(0).toUpperCase()}</span>
+          <span className="dashboard-avatar" aria-hidden="true">
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt="" />
+            ) : (
+              (profile.first_name || profile.email).charAt(0).toUpperCase()
+            )}
+          </span>
           <button type="button" onClick={signOut}>Sign out</button>
         </div>
       </header>

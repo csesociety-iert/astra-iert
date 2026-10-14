@@ -43,6 +43,14 @@ function completion(profile: Record<string, unknown>) {
 
 async function withAvatarUrl(profile: Record<string, unknown>) {
   const result: Record<string, unknown> = { ...profile, profile_complete: completion(profile) };
+  if (profile.account_type === "member") {
+    const photograph = profile.student_photograph;
+    result.avatar_url = typeof photograph === "string" && photograph.trim()
+      ? photograph.trim()
+      : null;
+    return result;
+  }
+
   const avatarPath = profile.avatar_path;
   if (typeof avatarPath === "string" && avatarPath) {
     const { data, error } = await getSupabaseAdmin()
