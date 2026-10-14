@@ -9,11 +9,11 @@ import { NotificationNavLink } from "@/components/notification-nav-link";
 import { apiRequest } from "@/lib/api";
 
 type DashboardTopbarProps = {
-  name: string;
-  accountType: string;
+  name?: string;
+  accountType?: string;
   avatarUrl?: string | null;
   activeHome?: boolean;
-  onSignOut: () => void | Promise<void>;
+  onSignOut?: () => void | Promise<void>;
 };
 
 export function DashboardTopbar({
@@ -29,6 +29,10 @@ export function DashboardTopbar({
   const [streak, setStreak] = useState<number | null>(null);
   const [streakError, setStreakError] = useState(false);
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const hasAccount = name !== undefined && accountType !== undefined && onSignOut !== undefined;
+  const account = name !== undefined && accountType !== undefined && onSignOut
+    ? { name, accountType, onSignOut }
+    : null;
 
   useEffect(() => {
     const updateScrollState = () => setIsScrolled(window.scrollY > 48);
@@ -38,6 +42,8 @@ export function DashboardTopbar({
   }, []);
 
   useEffect(() => {
+    if (!hasAccount) return;
+
     let active = true;
     apiRequest<{ current_streak: number }>("/api/streak")
       .then(({ current_streak: currentStreak }) => {
@@ -50,7 +56,7 @@ export function DashboardTopbar({
     return () => {
       active = false;
     };
-  }, []);
+  }, [hasAccount]);
 
   return (
     <header className={`dashboard-topbar${isScrolled ? " is-scrolled" : ""}${mobileMenuOpen ? " is-mobile-menu-open" : ""}`}>
@@ -81,22 +87,26 @@ export function DashboardTopbar({
         <NotificationNavLink onClick={closeMobileMenu} />
         <a href="mailto:csesociety.iert@gmail.com?subject=ASTRA%20Doubt%20and%20Support" onClick={closeMobileMenu}><Headset size={15} aria-hidden="true" />Doubt and support</a>
       </nav>
-      <div className="dashboard-account">
-        <span
-          className={`dashboard-streak${streak !== null && streak > 0 ? " is-active" : ""}`}
-          aria-label={streakError ? "Streak unavailable" : `${streak ?? "Loading"} day streak`}
-          title={streakError ? "Could not load your streak" : `${streak ?? "Loading"} day streak`}
-        >
-          <Flame size={14} aria-hidden="true" />
-          <span>{streakError ? "!" : streak ?? "…"}</span>
-        </span>
-        <ProfileDropdown
-          name={name}
-          accountType={accountType}
-          avatarUrl={avatarUrl}
-          onSignOut={onSignOut}
-        />
-      </div>
+      {account ? (
+        <div className="dashboard-account">
+          <span
+            className={`dashboard-streak${streak !== null && streak > 0 ? " is-active" : ""}`}
+            aria-label={streakError ? "Streak unavailable" : `${streak ?? "Loading"} day streak`}
+            title={streakError ? "Could not load your streak" : `${streak ?? "Loading"} day streak`}
+          >
+            <Flame size={14} aria-hidden="true" />
+            <span>{streakError ? "!" : streak ?? "…"}</span>
+          </span>
+          <ProfileDropdown
+            name={account.name}
+            accountType={account.accountType}
+            avatarUrl={avatarUrl}
+            onSignOut={account.onSignOut}
+          />
+        </div>
+      ) : (
+        <div className="dashboard-account dashboard-account-placeholder" aria-hidden="true" />
+      )}
     </header>
   );
 }

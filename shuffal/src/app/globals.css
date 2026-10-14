@@ -4786,6 +4786,19 @@ body {
   font-size: 15px;
 }
 
+.dashboard-account-placeholder {
+  width: 148px;
+  flex: 0 0 148px;
+  visibility: hidden;
+}
+
+@media (max-width: 700px) {
+  .dashboard-account-placeholder {
+    width: 120px;
+    flex-basis: 120px;
+  }
+}
+
 .dashboard-avatar {
   display: grid;
   place-items: center;
