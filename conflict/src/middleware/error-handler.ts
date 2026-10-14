@@ -1,10 +1,16 @@
 import type { ErrorRequestHandler } from "express";
 import { SupabaseConfigurationError } from "../lib/supabase.js";
+import { RequiredStorageError } from "../lib/storage-errors.js";
 
 export const errorHandler: ErrorRequestHandler = (error, _request, response, _next) => {
   if (error instanceof SupabaseConfigurationError) {
     console.error("Authentication service is not configured:", error.message);
     response.status(503).json({ error: error.message });
+    return;
+  }
+
+  if (error instanceof RequiredStorageError) {
+    response.status(error.statusCode).json({ error: error.message });
     return;
   }
 

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireSession } from "../middleware/require-session.js";
 import { getSupabaseAdmin } from "../lib/supabase.js";
+import { getCurrentStreak } from "../lib/streak.js";
+import { getSubmissionSummary } from "../lib/submissions.js";
 
 export const profileRouter = Router();
 
@@ -108,6 +110,20 @@ profileRouter.get("/me", requireSession, async (request, response, next) => {
   try {
     const profile = await loadProfile(request);
     response.json({ user: await withAvatarUrl(profile) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+profileRouter.get("/stats", requireSession, async (request, response, next) => {
+  try {
+    const session = request.astraSession;
+    if (!session) throw new Error("Authenticated session is missing.");
+    const [activity, submissions] = await Promise.all([
+      getCurrentStreak(session),
+      getSubmissionSummary(session),
+    ]);
+    response.json({ ...activity, ...submissions });
   } catch (error) {
     next(error);
   }

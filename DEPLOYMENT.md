@@ -45,8 +45,9 @@ credentialed requests only from the exact `FRONTEND_ORIGIN` and checks the
 
 ## 4. Configure Supabase and optional services
 
-1. Apply `supabase/migrations/202610130001_create_astra_credentials.sql` to
-   the Supabase project.
+1. Apply the SQL migrations in `supabase/migrations/` to the Supabase project.
+   The latest migration creates the accepted-activity and submission-history
+   tables used by the profile statistics; run it before deploying the API.
 2. Set the `MEMBER_*` variables in Render to match the existing member
    credential and profile tables. Check `conflict/.env.example` for names and
    defaults; the member password hashes must be bcrypt hashes.
