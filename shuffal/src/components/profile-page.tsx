@@ -22,6 +22,7 @@ type UserProfile = {
   aktu_enrollment_number?: string | null;
   admission_batch_year?: number | null;
   branch?: string | null;
+  current_year?: string | number | null;
   secondary_email?: string | null;
   mobile_number?: string | null;
   whatsapp_number?: string | null;
@@ -175,8 +176,8 @@ export function ProfilePage() {
   }, []);
 
   const year = useMemo(
-    () => calculatedYear(Number(form.admission_batch_year) || null),
-    [form.admission_batch_year],
+    () => profile?.current_year ?? calculatedYear(Number(form.admission_batch_year) || null),
+    [form.admission_batch_year, profile?.current_year],
   );
 
   function setField<Key extends keyof typeof emptyProfile>(
@@ -283,9 +284,10 @@ export function ProfilePage() {
   const availableMemberDetails: [string, string | number | null | undefined][] = [
     ["Society ID", profile.society_id],
     ["Email address", email],
-    ["AKTU enrollment number", profile.aktu_enrollment_number],
-    ["Admission batch year", profile.admission_batch_year],
+    ["AKTU roll number", profile.aktu_enrollment_number],
+    ["Admission year", profile.admission_batch_year],
     ["Branch", profile.branch],
+    ["Current year", year],
     ["Mobile number", profile.mobile_number],
   ];
 
@@ -295,7 +297,6 @@ export function ProfilePage() {
         name={displayName || profile.email || profile.email_address || "ASTRA member"}
         accountType={isOutsider ? "Outsider account" : "Society member"}
         avatarUrl={profile.avatar_url}
-        showBrand
         onSignOut={signOut}
       />
 
@@ -378,8 +379,9 @@ export function ProfilePage() {
               <dl>
                 {[
                   ["Email", email],
+                  ["AKTU roll number", profile.aktu_enrollment_number],
                   ["Branch", profile.branch],
-                  ["Batch", profile.admission_batch_year],
+                  ["Admission year", profile.admission_batch_year],
                   ["Current year", year],
                 ].filter((entry): entry is [string, string | number] => (
                   typeof entry[1] === "string" || typeof entry[1] === "number"

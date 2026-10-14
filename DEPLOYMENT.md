@@ -45,15 +45,18 @@ credentialed requests only from the exact `FRONTEND_ORIGIN` and checks the
 
 ## 4. Configure Supabase and optional services
 
-1. Apply the SQL migrations in `supabase/migrations/` to the Supabase project.
-   The latest migration creates the accepted-activity and submission-history
-   tables used by the profile statistics; run it before deploying the API.
+1. Apply all SQL migrations in `supabase/migrations/` to the Supabase project.
+   The latest migrations create accepted-activity, submission-history, and
+   notification tables; apply them before deploying the API.
 2. Set the `MEMBER_*` variables in Render to match the existing member
    credential and profile tables. Check `conflict/.env.example` for names and
    defaults; the member password hashes must be bcrypt hashes.
-3. To enable code execution, set `JUDGE0_API_URL` in Render and, if required by
+3. Set `ASTRA_ADMIN_ACCOUNT_IDS` in Render to a comma-separated allowlist of
+   admin account IDs. Use society IDs for member accounts and account UUIDs for
+   outsider accounts; only these signed-in accounts can publish announcements.
+4. To enable code execution, set `JUDGE0_API_URL` in Render and, if required by
    the provider, `JUDGE0_API_KEY` and `JUDGE0_AUTH_HEADER`.
-4. Configure `TURNSTILE_SECRET_KEY` in Render if the deployment uses
+5. Configure `TURNSTILE_SECRET_KEY` in Render if the deployment uses
    Cloudflare Turnstile verification.
 
 After changing any backend environment variables, redeploy or restart the

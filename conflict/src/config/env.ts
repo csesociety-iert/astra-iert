@@ -22,6 +22,7 @@ const envSchema = z.object({
     (value) => (value === "" ? undefined : value),
     z.string().min(32).optional(),
   ),
+  ASTRA_ADMIN_ACCOUNT_IDS: z.string().default(""),
   JUDGE0_API_URL: optionalUrl,
   JUDGE0_API_KEY: optionalSecret,
   JUDGE0_AUTH_HEADER: optionalSecret,

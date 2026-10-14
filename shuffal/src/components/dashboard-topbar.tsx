@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Flame, Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ChartNoAxesCombined, CircleHelp, Flame, House, Brain, CalendarCheck, Headset, Menu, X } from "lucide-react";
 import { ProfileDropdown } from "@/components/profile-dropdown";
+import { NotificationNavLink } from "@/components/notification-nav-link";
 import { apiRequest } from "@/lib/api";
 
 type DashboardTopbarProps = {
@@ -11,7 +13,6 @@ type DashboardTopbarProps = {
   accountType: string;
   avatarUrl?: string | null;
   activeHome?: boolean;
-  showBrand?: boolean;
   onSignOut: () => void | Promise<void>;
 };
 
@@ -20,13 +21,21 @@ export function DashboardTopbar({
   accountType,
   avatarUrl,
   activeHome = false,
-  showBrand = false,
   onSignOut,
 }: DashboardTopbarProps) {
+  const pathname = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [streak, setStreak] = useState<number | null>(null);
   const [streakError, setStreakError] = useState(false);
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  useEffect(() => {
+    const updateScrollState = () => setIsScrolled(window.scrollY > 48);
+    updateScrollState();
+    window.addEventListener("scroll", updateScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", updateScrollState);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -44,7 +53,7 @@ export function DashboardTopbar({
   }, []);
 
   return (
-    <header className={`dashboard-topbar${mobileMenuOpen ? " is-mobile-menu-open" : ""}`}>
+    <header className={`dashboard-topbar${isScrolled ? " is-scrolled" : ""}${mobileMenuOpen ? " is-mobile-menu-open" : ""}`}>
       <button
         className="dashboard-mobile-menu-toggle"
         type="button"
@@ -55,21 +64,22 @@ export function DashboardTopbar({
       >
         {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
       </button>
-      {showBrand && <Link className="profile-topbar-brand" href="/dashboard" onClick={closeMobileMenu}>STRIKE</Link>}
+      <Link className="dashboard-brand" href="/dashboard" onClick={closeMobileMenu} aria-label="ASTRA home">
+        <span>ASTRA</span>
+        <small>CSE SOCIETY</small>
+      </Link>
       <nav
         className="dashboard-nav"
         id="dashboard-navigation"
         aria-label="Main navigation"
       >
-        <Link href="/dashboard" aria-current={activeHome ? "page" : undefined} onClick={closeMobileMenu}>Home</Link>
-        <a href="/courses/rohit-negi-dsa-gen-ai-courses.pdf" target="_blank" rel="noopener noreferrer" onClick={closeMobileMenu}>
-          Courses
-        </a>
-        <Link href="/problems" onClick={closeMobileMenu}>Practice</Link>
-        <Link href="/problems" onClick={closeMobileMenu}>CodeArena</Link>
-        <span className="dashboard-nav-unavailable" aria-disabled="true" title="Coming soon">Quiz</span>
-        <span className="dashboard-nav-unavailable" aria-disabled="true" title="Coming soon">System Design</span>
-        <Link href="/contests" onClick={closeMobileMenu}>Contests</Link>
+        <Link href="/dashboard" aria-current={activeHome || pathname === "/dashboard" ? "page" : undefined} onClick={closeMobileMenu}><House size={15} aria-hidden="true" />Home</Link>
+        <Link href="/problems" aria-current={pathname.startsWith("/problems") ? "page" : undefined} onClick={closeMobileMenu}><CircleHelp size={15} aria-hidden="true" />Questions</Link>
+        <Link href="/profile" aria-current={pathname === "/profile" ? "page" : undefined} onClick={closeMobileMenu}><ChartNoAxesCombined size={15} aria-hidden="true" />Progress</Link>
+        <Link href="/dpp" aria-current={pathname === "/dpp" ? "page" : undefined} onClick={closeMobileMenu}><CalendarCheck size={15} aria-hidden="true" />DPP</Link>
+        <Link href="/quiz" aria-current={pathname === "/quiz" ? "page" : undefined} onClick={closeMobileMenu}><Brain size={15} aria-hidden="true" />Quiz</Link>
+        <NotificationNavLink onClick={closeMobileMenu} />
+        <a href="mailto:csesociety.iert@gmail.com?subject=ASTRA%20Doubt%20and%20Support" onClick={closeMobileMenu}><Headset size={15} aria-hidden="true" />Doubt and support</a>
       </nav>
       <div className="dashboard-account">
         <span

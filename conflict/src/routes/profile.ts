@@ -99,8 +99,12 @@ async function loadProfile(request: ExpressRequest) {
     .eq(env.MEMBER_PROFILE_ID_COLUMN, session.societyId ?? "")
     .single();
   if (error) throw error;
+  const memberProfile = data as Record<string, unknown>;
   return {
-    ...(data as Record<string, unknown>),
+    ...memberProfile,
+    aktu_enrollment_number: memberProfile.roll_number_aktu,
+    admission_batch_year: memberProfile.admission_year,
+    branch: memberProfile.branch_department,
     society_id: session.societyId,
     account_type: "member",
   };
