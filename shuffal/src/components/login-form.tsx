@@ -10,8 +10,8 @@ import { apiRequest } from "@/lib/api";
 type LoginResponse = {
   user: {
     account_type: "member" | "outsider";
-    first_name?: string;
-    last_name?: string;
+    first_name?: string | null;
+    last_name?: string | null;
   };
 };
 

@@ -3,10 +3,20 @@ import { rateLimit } from "express-rate-limit";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { env } from "../config/env.js";
+import { getOrCreateLinkedGuestProfile } from "../lib/guest-profile.js";
 import { getSupabaseAdmin } from "../lib/supabase.js";
-import { clearSessionCookie, setSessionCookie } from "../lib/session.js";
+import { clearSessionCookie, getSession, setSessionCookie } from "../lib/session.js";
+import { isAdminAccount } from "../lib/admin.js";
 
 export const authRouter = Router();
+
+authRouter.get("/access", async (request, response) => {
+  const session = await getSession(request);
+  response.json({
+    authenticated: Boolean(session),
+    is_admin: session ? isAdminAccount(session) : false,
+  });
+});
 
 const passwordSaltRounds = 10;
 
@@ -39,6 +49,7 @@ const registerSchema = z.object({
 function safeOutsider(row: Record<string, unknown>) {
   const {
     password_hash: _passwordHash,
+    member_account_id: _memberAccountId,
     ...profile
   } = row;
   return {
@@ -65,9 +76,10 @@ function profileComplete(profile: Record<string, unknown>) {
     "branch",
     "mobile_number",
     "address",
-    "avatar_path",
   ];
-  return Math.round((required.filter((field) => Boolean(profile[field])).length / required.length) * 100);
+  const completed = required.filter((field) => Boolean(profile[field])).length
+    + Number(Boolean(profile.avatar_url || profile.avatar_path));
+  return Math.round((completed / (required.length + 1)) * 100);
 }
 
 async function findOutsiderByEmail(email: string) {
@@ -104,12 +116,15 @@ async function findMember(identifier: string, isEmail: boolean, password: string
 
   const societyIdValue = account[env.MEMBER_LOGIN_ID_COLUMN];
   const email = account[env.MEMBER_LOGIN_EMAIL_COLUMN];
-  const hasSocietyId = typeof societyIdValue === "string" || typeof societyIdValue === "number";
+  const societyId = societyIdValue === null || societyIdValue === undefined
+    ? ""
+    : String(societyIdValue).trim();
+  const hasSocietyId = societyId.length > 0;
   const lookupColumn = hasSocietyId
     ? env.MEMBER_PROFILE_ID_COLUMN
     : env.MEMBER_PROFILE_EMAIL_COLUMN;
-  const lookupValue = hasSocietyId ? String(societyIdValue) : email;
-  if (typeof lookupValue !== "string") return null;
+  const lookupValue = hasSocietyId ? societyId : email;
+  if (typeof lookupValue !== "string" || !lookupValue) return null;
 
   const { data: profile, error: profileError } = await supabase
     .from(env.MEMBER_PROFILE_TABLE)
@@ -117,12 +132,12 @@ async function findMember(identifier: string, isEmail: boolean, password: string
     .eq(lookupColumn, lookupValue)
     .maybeSingle();
   if (profileError) throw profileError;
-  if (!profile) return null;
+  if (!profile && hasSocietyId) return null;
 
   return {
     account,
-    profile: profile as Record<string, unknown>,
-    societyId: hasSocietyId ? String(societyIdValue) : undefined,
+    profile: (profile ?? {}) as Record<string, unknown>,
+    societyId: hasSocietyId ? societyId : undefined,
   };
 }
 
@@ -161,6 +176,16 @@ authRouter.post("/login", loginLimiter, async (request, response, next) => {
     const userId = account.account[env.MEMBER_USER_PK_COLUMN];
     if (typeof userId !== "string" && typeof userId !== "number") {
       throw new Error(`Member credential table is missing its configured ${env.MEMBER_USER_PK_COLUMN} column.`);
+    }
+
+    if (!account.societyId) {
+      const guestProfile = await getOrCreateLinkedGuestProfile(account.account, account.profile);
+      await setSessionCookie(response, {
+        userId: String(guestProfile.id),
+        accountType: "outsider",
+      });
+      response.json({ user: safeOutsider(guestProfile) });
+      return;
     }
 
     await setSessionCookie(response, {

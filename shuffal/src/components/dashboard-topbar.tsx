@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ChartNoAxesCombined, CircleHelp, Flame, House, Brain, CalendarCheck, Headset, Menu, X } from "lucide-react";
 import { ProfileDropdown } from "@/components/profile-dropdown";
 import { NotificationNavLink } from "@/components/notification-nav-link";
+import { AdminNavLink } from "@/components/admin-nav-link";
 import { apiRequest } from "@/lib/api";
 
 type DashboardTopbarProps = {
@@ -45,16 +46,24 @@ export function DashboardTopbar({
     if (!hasAccount) return;
 
     let active = true;
-    apiRequest<{ current_streak: number }>("/api/streak")
-      .then(({ current_streak: currentStreak }) => {
-        if (active) setStreak(currentStreak);
-      })
-      .catch(() => {
+    async function refreshStreak() {
+      try {
+        const { current_streak: currentStreak } = await apiRequest<{ current_streak: number }>("/api/streak");
+        if (active) {
+          setStreak(currentStreak);
+          setStreakError(false);
+        }
+      } catch {
         if (active) setStreakError(true);
-      });
+      }
+    }
+
+    void refreshStreak();
+    window.addEventListener("astra:streak-updated", refreshStreak);
 
     return () => {
       active = false;
+      window.removeEventListener("astra:streak-updated", refreshStreak);
     };
   }, [hasAccount]);
 
@@ -85,6 +94,7 @@ export function DashboardTopbar({
         <Link href="/dpp" aria-current={pathname === "/dpp" ? "page" : undefined} onClick={closeMobileMenu}><CalendarCheck size={15} aria-hidden="true" />DPP</Link>
         <Link href="/quiz" aria-current={pathname === "/quiz" ? "page" : undefined} onClick={closeMobileMenu}><Brain size={15} aria-hidden="true" />Quiz</Link>
         <NotificationNavLink onClick={closeMobileMenu} />
+        <AdminNavLink onClick={closeMobileMenu} />
         <a href="mailto:csesociety.iert@gmail.com?subject=ASTRA%20Doubt%20and%20Support" onClick={closeMobileMenu}><Headset size={15} aria-hidden="true" />Doubt and support</a>
       </nav>
       {account ? (

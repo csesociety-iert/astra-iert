@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, Camera, CheckCircle2, Clock3, Flame, Share2, Trophy } from "lucide-react";
-import { apiRequest, apiUrl } from "@/lib/api";
+import { Activity, CheckCircle2, Clock3, Flame, Share2, Trophy } from "lucide-react";
+import { apiRequest } from "@/lib/api";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 
 type UserProfile = {
@@ -12,8 +12,8 @@ type UserProfile = {
   account_type: "member" | "outsider";
   email?: string | null;
   email_address?: string | null;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   society_id?: string;
   date_of_birth?: string | null;
   gender?: string | null;
@@ -67,7 +67,12 @@ const emptyProfile = {
   whatsapp_number: "",
   whatsapp_same_as_mobile: true,
   address: "",
+  avatar_url: "",
 };
+
+function isMissing(value: unknown) {
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+}
 
 function activityCalendar(today: string, activeDates: string[]) {
   const lastDay = new Date(`${today}T00:00:00.000Z`);
@@ -112,20 +117,23 @@ function calculatedYear(batchYear: number | null | undefined) {
 export function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [form, setForm] = useState(emptyProfile);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  const [preview, setPreview] = useState("");
   const [photoLoadFailed, setPhotoLoadFailed] = useState(false);
   const [activity, setActivity] = useState<ActivitySummary | null>(null);
   const [activityError, setActivityError] = useState("");
 
   const refreshProfile = useCallback(async () => {
-    const result = await apiRequest<{ user: UserProfile }>("/api/profile/me");
+    const [result, access] = await Promise.all([
+      apiRequest<{ user: UserProfile }>("/api/profile/me"),
+      apiRequest<{ is_admin: boolean }>("/api/auth/access"),
+    ]);
     setProfile(result.user);
+    setIsAdmin(access.is_admin);
     setPhotoLoadFailed(false);
     setForm({
       first_name: result.user.first_name ?? "",
@@ -141,6 +149,7 @@ export function ProfilePage() {
       whatsapp_number: result.user.whatsapp_number ?? "",
       whatsapp_same_as_mobile: result.user.whatsapp_same_as_mobile ?? true,
       address: result.user.address ?? "",
+      avatar_url: result.user.avatar_url ?? "",
     });
   }, []);
 
@@ -193,19 +202,22 @@ export function ProfilePage() {
     setMessage("");
     setSaving(true);
     try {
-      const payload = {
-        ...form,
-        date_of_birth: form.date_of_birth || null,
-        gender: form.gender || null,
-        blood_group: form.blood_group || null,
-        aktu_enrollment_number: form.aktu_enrollment_number || null,
-        admission_batch_year: form.admission_batch_year ? Number(form.admission_batch_year) : null,
-        branch: form.branch || null,
-        secondary_email: form.secondary_email || null,
-        mobile_number: form.mobile_number || null,
-        whatsapp_number: form.whatsapp_same_as_mobile ? null : form.whatsapp_number || null,
-        address: form.address || null,
-      };
+      const payload: Record<string, string | number> = {};
+      if (missingProfile.first_name) payload.first_name = form.first_name;
+      if (missingProfile.last_name) payload.last_name = form.last_name;
+      if (missingProfile.date_of_birth) payload.date_of_birth = form.date_of_birth;
+      if (missingProfile.gender) payload.gender = form.gender;
+      if (missingProfile.aktu_enrollment_number) {
+        payload.aktu_enrollment_number = form.aktu_enrollment_number;
+      }
+      if (missingProfile.admission_batch_year) {
+        payload.admission_batch_year = Number(form.admission_batch_year);
+      }
+      if (missingProfile.branch) payload.branch = form.branch;
+      if (missingProfile.mobile_number) payload.mobile_number = form.mobile_number;
+      if (missingProfile.address) payload.address = form.address;
+      if (missingProfile.avatar_url) payload.avatar_url = form.avatar_url;
+
       const result = await apiRequest<{ user: UserProfile }>("/api/profile/me", {
         method: "PATCH",
         body: JSON.stringify(payload),
@@ -216,40 +228,6 @@ export function ProfilePage() {
       setError(cause instanceof Error ? cause.message : "Could not save your profile.");
     } finally {
       setSaving(false);
-    }
-  }
-
-  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setError("");
-    setMessage("");
-    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 5 * 1024 * 1024) {
-      setError("Choose a JPG, PNG, or WebP photo up to 5 MB.");
-      event.target.value = "";
-      return;
-    }
-
-    setPhotoLoadFailed(false);
-    setPreview(URL.createObjectURL(file));
-    setUploading(true);
-    try {
-      const uploaded = await fetch(`${apiUrl}/api/profile/photo`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      const result = (await uploaded.json()) as { error?: string };
-      if (!uploaded.ok) throw new Error(result.error ?? "Could not upload your photo.");
-      await refreshProfile();
-      setPreview("");
-      setMessage("Profile photo uploaded.");
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not upload your photo.");
-    } finally {
-      setUploading(false);
-      event.target.value = "";
     }
   }
 
@@ -275,10 +253,24 @@ export function ProfilePage() {
     );
   }
 
-  const isOutsider = profile.account_type === "outsider";
+  const isSocietyMember = Boolean(profile.society_id?.trim());
+  const isGuest = !isSocietyMember;
   const completion = profile.profile_complete ?? 0;
   const displayName = [profile.first_name, profile.last_name].filter(Boolean).join(" ");
   const email = profile.email || profile.email_address || "";
+  const missingProfile = {
+    first_name: isMissing(profile.first_name),
+    last_name: isMissing(profile.last_name),
+    date_of_birth: isMissing(profile.date_of_birth),
+    gender: isMissing(profile.gender),
+    aktu_enrollment_number: isMissing(profile.aktu_enrollment_number),
+    admission_batch_year: isMissing(profile.admission_batch_year),
+    branch: isMissing(profile.branch),
+    mobile_number: isMissing(profile.mobile_number),
+    address: isMissing(profile.address),
+    avatar_url: isMissing(profile.avatar_url),
+  };
+  const missingCount = Object.values(missingProfile).filter(Boolean).length;
   const calendarDays = activity ? activityCalendar(activity.today, activity.activity_dates) : [];
   const activityToday = activity?.today ?? new Date().toISOString().slice(0, 10);
   const availableMemberDetails: [string, string | number | null | undefined][] = [
@@ -295,7 +287,7 @@ export function ProfilePage() {
     <div className="profile-dashboard">
       <DashboardTopbar
         name={displayName || profile.email || profile.email_address || "ASTRA member"}
-        accountType={isOutsider ? "Outsider account" : "Society member"}
+        accountType={isAdmin ? "Admin" : isSocietyMember ? "Society member" : "Guest member"}
         avatarUrl={profile.avatar_url}
         onSignOut={signOut}
       />
@@ -315,22 +307,17 @@ export function ProfilePage() {
                 <Share2 size={17} aria-hidden="true" />
               </button>
               <div className="profile-analytics-avatar">
-                {(preview || profile.avatar_url) && !photoLoadFailed ? (
+                {profile.avatar_url && !photoLoadFailed ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={preview || profile.avatar_url || ""} alt={displayName || "Profile photo"} onError={() => setPhotoLoadFailed(true)} />
+                  <img src={profile.avatar_url} alt={displayName || "Profile photo"} onError={() => setPhotoLoadFailed(true)} />
                 ) : <span>{initialsFor(displayName || email)}</span>}
-                {isOutsider && (
-                  <label className="profile-camera-button" aria-label="Upload profile photo">
-                    <Camera size={16} aria-hidden="true" />
-                    <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto} disabled={uploading} />
-                  </label>
-                )}
               </div>
               <h1>{displayName || "ASTRA member"}</h1>
               <p className="profile-identity-email">{email}</p>
-              <span className="profile-account-badge">{isOutsider ? "ASTRA member" : "CSE Society member"}</span>
+              <span className={`profile-account-badge ${isSocietyMember ? "is-society" : "is-guest"}`}>
+                {isAdmin ? "Admin" : isSocietyMember ? "CSE Society member" : "Guest member"}
+              </span>
               {profile.society_id && <span className="profile-society-id">Society ID · {profile.society_id}</span>}
-              {uploading && <span className="profile-photo-uploading">Uploading photo…</span>}
             </section>
 
             <section className="profile-progress-card profile-solving-progress-card">
@@ -375,7 +362,7 @@ export function ProfilePage() {
 
             <section className="profile-skills-card profile-account-details-card">
               <h2>Account details</h2>
-              <p className="profile-skills-caption">{isOutsider ? "Personal account" : "Society membership"}</p>
+              <p className="profile-skills-caption">{isAdmin ? "Admin account" : isSocietyMember ? "Society membership" : "Guest account"}</p>
               <dl>
                 {[
                   ["Email", email],
@@ -512,106 +499,103 @@ export function ProfilePage() {
         {error && <p className="dashboard-message error" role="alert">{error}</p>}
         {message && <p className="dashboard-message success" role="status">{message}</p>}
 
-        {isOutsider ? (
+        {isGuest ? (
           <section className="profile-edit-card profile-edit-section">
             <div className="profile-card-heading">
               <div>
-                <h2>Edit profile details</h2>
-                <p>Only the details you choose to provide are shown on your profile.</p>
+                <h2>Complete your profile</h2>
+                <p>We’ll ask only for the required details that are still missing from your ASTRA profile.</p>
               </div>
               <span className="profile-private-label">Private by default</span>
             </div>
-            <form className="profile-form" onSubmit={handleSave}>
-              <div className="profile-form-grid">
-                <div className="profile-field">
-                  <label htmlFor="profile-first-name">First name</label>
-                  <input id="profile-first-name" value={form.first_name} onChange={(event) => setField("first_name", event.target.value)} required />
+            {missingCount > 0 ? (
+              <form className="profile-form" onSubmit={handleSave}>
+                <div className="profile-form-grid">
+                  {missingProfile.first_name && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-first-name">First name</label>
+                      <input id="profile-first-name" autoComplete="given-name" value={form.first_name} onChange={(event) => setField("first_name", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.last_name && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-last-name">Last name</label>
+                      <input id="profile-last-name" autoComplete="family-name" value={form.last_name} onChange={(event) => setField("last_name", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.date_of_birth && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-dob">Date of birth</label>
+                      <input id="profile-dob" type="date" value={form.date_of_birth} onChange={(event) => setField("date_of_birth", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.gender && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-gender">Gender</label>
+                      <select id="profile-gender" value={form.gender} onChange={(event) => setField("gender", event.target.value)} required>
+                        <option value="">Select gender</option>
+                        <option value="female">Female</option>
+                        <option value="male">Male</option>
+                        <option value="non_binary">Non-binary</option>
+                        <option value="prefer_not_to_say">Prefer not to say</option>
+                      </select>
+                    </div>
+                  )}
+                  {missingProfile.aktu_enrollment_number && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-enrollment">AKTU enrollment number</label>
+                      <input id="profile-enrollment" value={form.aktu_enrollment_number} onChange={(event) => setField("aktu_enrollment_number", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.admission_batch_year && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-batch">Admission batch year</label>
+                      <input id="profile-batch" type="number" min="2000" max="2100" value={form.admission_batch_year} onChange={(event) => setField("admission_batch_year", event.target.value)} placeholder="e.g. 2024" required />
+                    </div>
+                  )}
+                  {missingProfile.branch && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-branch">Branch</label>
+                      <select id="profile-branch" value={form.branch} onChange={(event) => setField("branch", event.target.value)} required>
+                        <option value="">Select branch</option>
+                        {["Computer Science & Engineering", "Information Technology", "Electronics Engineering", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering", "Other"].map((branch) => <option key={branch}>{branch}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {missingProfile.mobile_number && (
+                    <div className="profile-field">
+                      <label htmlFor="profile-mobile">Mobile number</label>
+                      <input id="profile-mobile" type="tel" autoComplete="tel" value={form.mobile_number} onChange={(event) => setField("mobile_number", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.address && (
+                    <div className="profile-field profile-field-wide">
+                      <label htmlFor="profile-address">Current address</label>
+                      <textarea id="profile-address" rows={3} value={form.address} onChange={(event) => setField("address", event.target.value)} required />
+                    </div>
+                  )}
+                  {missingProfile.avatar_url && (
+                    <div className="profile-field profile-field-wide">
+                      <label htmlFor="profile-avatar-url">Public profile photo link</label>
+                      <input id="profile-avatar-url" type="url" inputMode="url" value={form.avatar_url} onChange={(event) => setField("avatar_url", event.target.value)} placeholder="https://…" required />
+                      <small>Use an HTTPS image link that is publicly accessible.</small>
+                    </div>
+                  )}
                 </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-last-name">Last name</label>
-                  <input id="profile-last-name" value={form.last_name} onChange={(event) => setField("last_name", event.target.value)} required />
+                <div className="profile-form-actions">
+                  <p>Missing details are saved to your ASTRA guest profile.</p>
+                  <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save missing details"}</button>
                 </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-email">Email address</label>
-                  <input id="profile-email" type="email" value={profile.email ?? ""} readOnly />
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-secondary-email">Secondary email <span>Optional</span></label>
-                  <input id="profile-secondary-email" type="email" value={form.secondary_email} onChange={(event) => setField("secondary_email", event.target.value)} placeholder="another@email.com" />
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-dob">Date of birth</label>
-                  <input id="profile-dob" type="date" value={form.date_of_birth} onChange={(event) => setField("date_of_birth", event.target.value)} />
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-gender">Gender</label>
-                  <select id="profile-gender" value={form.gender} onChange={(event) => setField("gender", event.target.value)}>
-                    <option value="">Select gender</option>
-                    <option value="female">Female</option>
-                    <option value="male">Male</option>
-                    <option value="non_binary">Non-binary</option>
-                    <option value="prefer_not_to_say">Prefer not to say</option>
-                  </select>
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-blood-group">Blood group <span>Optional</span></label>
-                  <select id="profile-blood-group" value={form.blood_group} onChange={(event) => setField("blood_group", event.target.value)}>
-                    <option value="">Select blood group</option>
-                    {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((group) => <option key={group}>{group}</option>)}
-                  </select>
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-enrollment">AKTU enrollment number</label>
-                  <input id="profile-enrollment" value={form.aktu_enrollment_number} onChange={(event) => setField("aktu_enrollment_number", event.target.value)} />
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-batch">Admission batch year</label>
-                  <input id="profile-batch" type="number" min="2000" max="2100" value={form.admission_batch_year} onChange={(event) => setField("admission_batch_year", event.target.value)} placeholder="e.g. 2024" />
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-current-year">Current year</label>
-                  <input id="profile-current-year" value={year ?? "Calculated from admission batch"} readOnly />
-                  <small>Calculated automatically; you do not need to enter this.</small>
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-branch">Branch</label>
-                  <select id="profile-branch" value={form.branch} onChange={(event) => setField("branch", event.target.value)}>
-                    <option value="">Select branch</option>
-                    {["Computer Science & Engineering", "Information Technology", "Electronics Engineering", "Electrical Engineering", "Mechanical Engineering", "Civil Engineering", "Other"].map((branch) => <option key={branch}>{branch}</option>)}
-                  </select>
-                </div>
-                <div className="profile-field">
-                  <label htmlFor="profile-mobile">Mobile number</label>
-                  <input id="profile-mobile" type="tel" autoComplete="tel" value={form.mobile_number} onChange={(event) => setField("mobile_number", event.target.value)} />
-                </div>
-                <div className="profile-field profile-field-wide">
-                  <label className="same-number-toggle">
-                    <input type="checkbox" checked={form.whatsapp_same_as_mobile} onChange={(event) => setField("whatsapp_same_as_mobile", event.target.checked)} />
-                    My WhatsApp number is the same as my mobile number
-                  </label>
-                </div>
-                {!form.whatsapp_same_as_mobile && (
-                  <div className="profile-field">
-                    <label htmlFor="profile-whatsapp">WhatsApp number</label>
-                    <input id="profile-whatsapp" type="tel" value={form.whatsapp_number} onChange={(event) => setField("whatsapp_number", event.target.value)} />
-                  </div>
-                )}
-                <div className="profile-field profile-field-wide">
-                  <label htmlFor="profile-address">Current address</label>
-                  <textarea id="profile-address" rows={3} value={form.address} onChange={(event) => setField("address", event.target.value)} />
-                </div>
-              </div>
-              <div className="profile-form-actions">
-                <p>Fields are saved securely to your ASTRA profile.</p>
-                <button type="submit" disabled={saving}>{saving ? "Saving…" : "Save profile"}</button>
-              </div>
-            </form>
+              </form>
+            ) : (
+              <p className="profile-setup-complete" role="status">Your required profile details are complete.</p>
+            )}
           </section>
         ) : (
           <section className="profile-edit-card profile-edit-section">
             <div className="profile-card-heading">
               <div><h2>Membership profile</h2><p>Your society membership information is shown here as read-only.</p></div>
-              <span className="profile-private-label">Society member</span>
+              <span className="profile-private-label">{isAdmin ? "Admin" : "Society member"}</span>
             </div>
             <dl className="member-profile-fields">
               {availableMemberDetails.filter((entry): entry is [string, string | number] => (

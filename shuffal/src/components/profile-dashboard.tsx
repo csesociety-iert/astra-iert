@@ -2,25 +2,142 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { ArrowUpRight, BookOpen, CheckCircle2, Code2, History, Medal, Trophy, X } from "lucide-react";
+import { ArrowUpRight, CheckCircle2, Code2, History, Medal, Trophy, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { contests, featuredProblems, leaderboard, submissions } from "@/lib/data";
 import { DashboardTopbar } from "@/components/dashboard-topbar";
 
+const dailyHeadlines = [
+  "Write the syntax of your own success.",
+  "Compile your ambition; debug your limits.",
+  "Design the logic that defines tomorrow.",
+  "Your career is a blank canvas—commit your vision.",
+  "Architect your destiny, one line at a time.",
+  "Iterate on your dreams until they deploy.",
+  "Refactor your mindset to scale new heights.",
+  "Engineers don't wait for the future; they code it.",
+  "Transform every bug into a stepping stone.",
+  "Your potential has no infinite loops—break free.",
+  "Execute your purpose with absolute precision.",
+  "Merge your passion with relentless persistence.",
+  "Build solutions that outlast the codebase.",
+  "Initialize your greatness with every keystroke.",
+  "Optimize your routine, maximize your impact.",
+  "Let your curiosity drive your development.",
+  "Every algorithm starts with a single step.",
+  "Solve complex problems by breaking them down.",
+  "Scale your efforts to match your grandest goals.",
+  "Test your limits, then push past the threshold.",
+  "Your code carries the weight of your ambition.",
+  "Build a legacy that compiles cleanly every time.",
+  "Master the fundamentals to conquer any challenge.",
+  "Let creativity be the core engine of your logic.",
+  "Patch your weaknesses and upgrade your strengths.",
+  "Deploy courage into every unfamiliar problem.",
+  "Syntax errors are just lessons in disguise.",
+  "Run your life with intention and clean structure.",
+  "Craft your skills with the precision of a master builder.",
+  "Transform abstract ideas into functional reality.",
+  "Your journey is a continuous integration of growth.",
+  "Keep your vision clear and your code modular.",
+  "Solve the hard problems today to lead tomorrow.",
+  "Push your boundaries further with every commit.",
+  "Turn complex chaos into elegant architecture.",
+  "Drive innovation through disciplined execution.",
+  "Every line you write shapes who you become.",
+  "Build resilient habits that handle any exception.",
+  "Program your mind for unstoppable progress.",
+  "Chase mastery, not just a passing test case.",
+  "Your future is an open-source project—own it.",
+  "Deconstruct your doubts and rebuild your confidence.",
+  "Keep learning, keep building, keep evolving.",
+  "Turn every challenge into a feature, not a bug.",
+  "Refine your process until success is automatic.",
+  "Let your ambition run faster than your processor.",
+  "Write clean logic for a clear and purposeful life.",
+  "Shape the digital world with your unique vision.",
+  "Unlock your true capacity through deep focus.",
+  "Take total ownership of your coding evolution.",
+  "Program the habits that automate your excellence.",
+  "Let persistence be the constant in your algorithms.",
+  "Trace your thoughts and prune away the noise.",
+  "Initialize every day with a clear plan and high output.",
+  "Scale your mindset beyond traditional constraints.",
+  "Debug your fears before they halt your progress.",
+  "Write self-documenting goals for your life.",
+  "Refactor your routines to eliminate bottlenecks.",
+  "Deploy your best effort into everything you touch.",
+  "Encapsulate your focus and protect your energy.",
+  "Inherit the wisdom of those who came before you.",
+  "Polymorph your skills to adapt to any environment.",
+  "Cache your successes to fuel future motivation.",
+  "Garbage-collect the distractions holding you back.",
+  "Bind your dedication tightly to your ambitions.",
+  "Catch exceptions gracefully when life throws errors.",
+  "Branch out into new domains and expand your reach.",
+  "Merge your hard work with smart strategy.",
+  "Tag your milestones and celebrate every release.",
+  "Clone your best habits and multiply your output.",
+  "Stash your worries and commit to the process.",
+  "Revert the setbacks and rewrite your narrative.",
+  "Fetch fresh knowledge from every experience.",
+  "Push your boundaries past every known threshold.",
+  "Pull updates from your mentors and peers.",
+  "Compare your progress against your past self alone.",
+  "Diff your current skills with your ultimate goals.",
+  "Log your daily wins to track your trajectory.",
+  "Audit your habits to ensure clean execution.",
+  "Benchmark your growth against the highest standards.",
+  "Profile your time to maximize productivity.",
+  "Bootstrap your career from the ground up.",
+  "Package your expertise into undeniable value.",
+  "Release your potential to the world stage.",
+  "Document your journey for those who follow.",
+  "Secure your foundation against sudden disruptions.",
+  "Authenticate your passion through daily action.",
+  "Encrypt your resolve against external doubts.",
+  "Validate your ideas through rigorous testing.",
+  "Sanitize your inputs and filter out negativity.",
+  "Throttle your impatience and trust the timeline.",
+  "Synchronize your goals with your daily habits.",
+  "Distribute your energy wisely across your tasks.",
+  "Load balance your workload to prevent burnout.",
+  "Fail fast, learn faster, and iterate endlessly.",
+  "Keep your inner state clean and your output pristine.",
+  "Master the terminal of your own destiny.",
+  "Root your actions in purpose and discipline.",
+  "Export your talents and enrich your community.",
+  "Take complete control of your coding future.",
+];
+
+function getDailyHeadline() {
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts();
+  const part = (type: string) => Number(parts.find((entry) => entry.type === type)?.value);
+  const dayNumber = Math.floor(Date.UTC(part("year"), part("month") - 1, part("day")) / 86_400_000);
+  return dailyHeadlines[dayNumber % dailyHeadlines.length];
+}
+
 type UserProfile = {
   id: string;
   account_type: "member" | "outsider";
   email: string;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   society_id?: string;
   avatar_url?: string | null;
+  profile_complete?: number;
 };
 
 export function ProfileDashboard() {
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [welcomeToast, setWelcomeToast] = useState("");
@@ -41,8 +158,12 @@ export function ProfileDashboard() {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    const result = await apiRequest<{ user: UserProfile }>("/api/profile/me");
+    const [result, access] = await Promise.all([
+      apiRequest<{ user: UserProfile }>("/api/profile/me"),
+      apiRequest<{ is_admin: boolean }>("/api/auth/access"),
+    ]);
     setProfile(result.user);
+    setIsAdmin(access.is_admin);
   }, []);
 
   useEffect(() => {
@@ -82,7 +203,8 @@ export function ProfileDashboard() {
     );
   }
 
-  const isOutsider = profile.account_type === "outsider";
+  const isSocietyMember = Boolean(profile.society_id?.trim());
+  const dailyHeadline = getDailyHeadline();
   return (
     <div className="profile-dashboard">
       {welcomeToast && (
@@ -96,7 +218,7 @@ export function ProfileDashboard() {
       )}
       <DashboardTopbar
         name={[profile.first_name, profile.last_name].filter(Boolean).join(" ") || profile.email}
-        accountType={isOutsider ? "Outsider account" : "Society member"}
+        accountType={isAdmin ? "Admin" : isSocietyMember ? "Society member" : "Guest member"}
         avatarUrl={profile.avatar_url}
         activeHome
         onSignOut={signOut}
@@ -105,24 +227,23 @@ export function ProfileDashboard() {
       <main className="dashboard-main">
         <section className="dashboard-hero">
           <p className="dashboard-eyebrow">CSE SOCIETY · IERT PRAYAGRAJ</p>
-          <h1>Take control of your <span>coding future.</span></h1>
+          <h1><span>{dailyHeadline}</span></h1>
           <p className="dashboard-intro">
             Master data structures, algorithms, and problem solving with your ASTRA coding workspace.
           </p>
           <div className="dashboard-hero-actions">
             <Link href="/problems" className="dashboard-primary-action">Start solving <ArrowUpRight size={16} /></Link>
-            <Link href="/contests" className="dashboard-secondary-action">Explore contests</Link>
-            <a
-              href="/courses/rohit-negi-dsa-gen-ai-courses.pdf"
-              className="dashboard-secondary-action"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <BookOpen size={16} /> DSA &amp; Gen AI course PDF
-            </a>
           </div>
-          {profile.society_id && <span className="member-id-chip">Society ID · {profile.society_id}</span>}
         </section>
+        {!isSocietyMember && (profile.profile_complete ?? 0) < 100 && (
+          <section className="dashboard-profile-incomplete" aria-label="Incomplete guest profile">
+            <div>
+              <strong>Complete your guest profile</strong>
+              <span>{profile.profile_complete ?? 0}% complete. Add only the missing required details.</span>
+            </div>
+            <Link href="/profile">Complete profile <ArrowUpRight size={15} aria-hidden="true" /></Link>
+          </section>
+        )}
         {error && <p className="dashboard-message error" role="alert">{error}</p>}
 
         <section className="dashboard-code-preview" aria-label="ASTRA coding workspace preview">

@@ -3,6 +3,7 @@ import type { Request as ExpressRequest } from "express";
 import { z } from "zod";
 import { env } from "../config/env.js";
 import { requireSession } from "../middleware/require-session.js";
+import { getOrCreateLinkedGuestProfile } from "../lib/guest-profile.js";
 import { getSupabaseAdmin } from "../lib/supabase.js";
 import { getCurrentStreak } from "../lib/streak.js";
 import { getSubmissionSummary } from "../lib/submissions.js";
@@ -23,6 +24,13 @@ const editableProfileSchema = z.object({
   whatsapp_number: z.string().trim().max(25).nullable().optional(),
   whatsapp_same_as_mobile: z.boolean().optional(),
   address: z.string().trim().max(500).nullable().optional(),
+  avatar_url: z.string().trim().url().refine((value) => {
+    try {
+      return new URL(value).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }, "Use a public HTTPS photo link.").nullable().optional(),
 });
 
 function completion(profile: Record<string, unknown>) {
@@ -36,10 +44,11 @@ function completion(profile: Record<string, unknown>) {
     "branch",
     "mobile_number",
     "address",
-    "avatar_path",
   ];
+  const completed = requiredFields.filter((field) => Boolean(profile[field])).length
+    + Number(Boolean(profile.avatar_url || profile.avatar_path));
   return Math.round(
-    (requiredFields.filter((field) => Boolean(profile[field])).length / requiredFields.length) * 100,
+    (completed / (requiredFields.length + 1)) * 100,
   );
 }
 
@@ -61,6 +70,11 @@ async function withAvatarUrl(profile: Record<string, unknown>) {
   const result: Record<string, unknown> = { ...profile, profile_complete: completion(profile) };
   if (profile.account_type === "member") {
     result.avatar_url = getDisplayPhotoUrl(profile.student_photograph);
+    return result;
+  }
+
+  if (typeof profile.avatar_url === "string" && profile.avatar_url.trim()) {
+    result.avatar_url = getDisplayPhotoUrl(profile.avatar_url);
     return result;
   }
 
@@ -90,13 +104,57 @@ async function loadProfile(request: ExpressRequest) {
       .eq("id", session.userId)
       .single();
     if (error) throw error;
-    return data as Record<string, unknown>;
+    const {
+      password_hash: _passwordHash,
+      member_account_id: _memberAccountId,
+      ...profile
+    } = data;
+    return { ...profile, account_type: "outsider" } as Record<string, unknown>;
+  }
+
+  let societyId = session.societyId;
+  if (!societyId) {
+    const { data: account, error: accountError } = await supabase
+      .from(env.MEMBER_USER_TABLE)
+      .select("*")
+      .eq(env.MEMBER_USER_PK_COLUMN, session.userId)
+      .maybeSingle();
+    if (accountError) throw accountError;
+    if (!account) throw new Error("Could not find the signed-in member account.");
+
+    const societyIdValue = account[env.MEMBER_LOGIN_ID_COLUMN];
+    societyId = societyIdValue === null || societyIdValue === undefined
+      ? ""
+      : String(societyIdValue).trim();
+    if (!societyId) {
+      const email = account[env.MEMBER_LOGIN_EMAIL_COLUMN];
+      if (typeof email !== "string" || !email.trim()) {
+        throw new Error(`Accounts without a Society ID need a registered email in ${env.MEMBER_LOGIN_EMAIL_COLUMN}.`);
+      }
+      const { data: memberProfile, error: memberProfileError } = await supabase
+        .from(env.MEMBER_PROFILE_TABLE)
+        .select("*")
+        .eq(env.MEMBER_PROFILE_EMAIL_COLUMN, email)
+        .maybeSingle();
+      if (memberProfileError) throw memberProfileError;
+
+      const guestProfile = await getOrCreateLinkedGuestProfile(
+        account as Record<string, unknown>,
+        (memberProfile ?? {}) as Record<string, unknown>,
+      );
+      const {
+        password_hash: _passwordHash,
+        member_account_id: _memberAccountId,
+        ...profile
+      } = guestProfile;
+      return { ...profile, account_type: "outsider" } as Record<string, unknown>;
+    }
   }
 
   const { data, error } = await supabase
     .from(env.MEMBER_PROFILE_TABLE)
     .select("*")
-    .eq(env.MEMBER_PROFILE_ID_COLUMN, session.societyId ?? "")
+    .eq(env.MEMBER_PROFILE_ID_COLUMN, societyId)
     .single();
   if (error) throw error;
   const memberProfile = data as Record<string, unknown>;
@@ -105,7 +163,7 @@ async function loadProfile(request: ExpressRequest) {
     aktu_enrollment_number: memberProfile.roll_number_aktu,
     admission_batch_year: memberProfile.admission_year,
     branch: memberProfile.branch_department,
-    society_id: session.societyId,
+    society_id: societyId,
     account_type: "member",
   };
 }
@@ -141,20 +199,31 @@ profileRouter.patch("/me", requireSession, async (request, response, next) => {
   }
 
   const session = request.astraSession;
-  if (!session || session.accountType !== "outsider") {
-    response.status(403).json({ error: "Only outsider accounts can edit this profile." });
+  if (!session) {
+    response.status(401).json({ error: "Please sign in to continue." });
     return;
   }
 
   try {
+    const currentProfile = await loadProfile(request);
+    if (currentProfile.account_type !== "outsider" || typeof currentProfile.id !== "string") {
+      response.status(403).json({ error: "Only guest accounts can edit this profile." });
+      return;
+    }
+
     const { data, error } = await getSupabaseAdmin()
       .from("astra_credentials")
       .update({ ...parsed.data, updated_at: new Date().toISOString() })
-      .eq("id", session.userId)
+      .eq("id", currentProfile.id)
       .select("*")
       .single();
     if (error) throw error;
-    response.json({ user: await withAvatarUrl(data as Record<string, unknown>) });
+    const {
+      password_hash: _passwordHash,
+      member_account_id: _memberAccountId,
+      ...profile
+    } = data as Record<string, unknown>;
+    response.json({ user: await withAvatarUrl({ ...profile, account_type: "outsider" }) });
   } catch (error) {
     next(error);
   }

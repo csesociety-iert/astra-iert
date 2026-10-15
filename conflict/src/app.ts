@@ -9,6 +9,7 @@ import { judgeRouter } from "./routes/judge.js";
 import { profileRouter } from "./routes/profile.js";
 import { streakRouter } from "./routes/streak.js";
 import { notificationRouter } from "./routes/notifications.js";
+import { problemRouter } from "./routes/problems.js";
 
 export const app = express();
 
@@ -29,6 +30,7 @@ app.use(express.json({ limit: "100kb" }));
 app.use("/api/auth", authRouter);
 app.use("/api/profile", profileRouter);
 app.use("/api/judge", judgeRouter);
+app.use("/api/problems", problemRouter);
 app.use("/api/streak", streakRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/health", healthRouter);

@@ -114,7 +114,9 @@ export function ProfileDropdown({
             </span>
             <span className="profile-dropdown-identity">
               <strong>{name}</strong>
-              <small>{accountType}</small>
+              <small className={`profile-account-type${accountType === "Society member" ? " is-society" : " is-guest"}`}>
+                {accountType}
+              </small>
             </span>
           </div>
           <div className="profile-dropdown-actions">

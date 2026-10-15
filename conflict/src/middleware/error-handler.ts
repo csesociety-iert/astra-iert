@@ -19,6 +19,8 @@ export const errorHandler: ErrorRequestHandler = (error, _request, response, _ne
     ? Number(error.status)
     : 500;
   response.status(status >= 400 && status < 500 ? status : 500).json({
-    error: status === 413 ? "The uploaded file is too large. The maximum photo size is 5 MB." : "Internal server error",
+    error: status === 413
+      ? "The request is too large. Keep JSON question imports under 100 KB."
+      : "Internal server error",
   });
 };

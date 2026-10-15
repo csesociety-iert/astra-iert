@@ -19,6 +19,11 @@ adding the API URL so the rewrite is included in the production build.
 
 1. In Render, create a Blueprint from the GitHub repository. Render reads
    `render.yaml` and creates the `astra-api` web service.
+   The API build command installs development dependencies for TypeScript
+   compilation and builds only the `conflict` workspace. If creating a Web
+   Service manually, use `npm ci --include=dev && npm run build --workspace
+   conflict` as the build command and `npm run start` as the start command;
+   do not use the root `npm run build`, which also builds the frontend.
 2. Set `FRONTEND_ORIGIN` to the exact deployed Vercel origin, including
    `https://` and no trailing slash (for example, `https://astra-iert.vercel.app`).
 3. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` using the Supabase
@@ -47,7 +52,9 @@ credentialed requests only from the exact `FRONTEND_ORIGIN` and checks the
 
 1. Apply all SQL migrations in `supabase/migrations/` to the Supabase project.
    The latest migrations create accepted-activity, submission-history, and
-   notification tables; apply them before deploying the API.
+   notification tables and support persistent profiles for guest logins
+   without a Society ID, plus the persistent problem library and private
+   Judge0 test cases; apply them before deploying the API.
 2. Set the `MEMBER_*` variables in Render to match the existing member
    credential and profile tables. Check `conflict/.env.example` for names and
    defaults; the member password hashes must be bcrypt hashes.

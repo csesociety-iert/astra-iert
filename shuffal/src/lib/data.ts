@@ -16,6 +16,7 @@ export type Problem = {
   sampleInput?: string;
   sampleOutput?: string;
   starterCode?: string;
+  testCaseCount?: number;
 };
 
 export const problems: Problem[] = [

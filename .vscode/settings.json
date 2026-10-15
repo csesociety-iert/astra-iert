@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^Write-Output \"root node_modules: \\$\\(Test-Path 'node_modules'\\)\"; Write-Output \"frontend node_modules: \\$\\(Test-Path 'shuffal\\\\node_modules'\\)\"; Write-Output \"backend node_modules: \\$\\(Test-Path 'conflict\\\\node_modules'\\)\"; Write-Output \"backend env file exists: \\$\\(Test-Path 'conflict\\\\\\.env'\\)\"$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}

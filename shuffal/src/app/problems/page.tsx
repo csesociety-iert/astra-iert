@@ -1,8 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { ProblemCard } from "@/components/problem-card";
 import { PortalShell } from "@/components/portal-shell";
 import { problems } from "@/lib/data";
+import { apiRequest } from "@/lib/api";
+import type { Problem } from "@/lib/data";
 
 export default function ProblemsPage() {
+  const [allProblems, setAllProblems] = useState(problems);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    apiRequest<{ problems: Problem[] }>("/api/problems")
+      .then(({ problems: storedProblems }) => {
+        if (!active) return;
+        const storedSlugs = new Set(storedProblems.map(({ slug }) => slug));
+        setAllProblems([
+          ...storedProblems,
+          ...problems.filter(({ slug }) => !storedSlugs.has(slug)),
+        ]);
+      })
+      .catch((cause: unknown) => {
+        if (active) setLoadError(cause instanceof Error ? cause.message : "Could not load newly added questions.");
+      });
+    return () => { active = false; };
+  }, []);
+
   return (
     <PortalShell>
     <main className="container-shell portal-content py-10">
@@ -30,10 +55,11 @@ export default function ProblemsPage() {
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {problems.map((problem) => (
+        {allProblems.map((problem) => (
           <ProblemCard key={problem.slug} problem={problem} />
         ))}
       </div>
+      {loadError && <p className="mt-5 text-sm text-amber-200" role="status">{loadError} Showing built-in questions that are available locally.</p>}
     </main>
     </PortalShell>
   );

@@ -3,7 +3,7 @@ import type { CookieOptions, Request, Response } from "express";
 import { env } from "../config/env.js";
 
 const cookieName = "astra_session";
-const sessionDurationSeconds = 60 * 60 * 24 * 7;
+const sessionDurationSeconds = 60 * 30;
 
 export type SessionClaims = {
   userId: string;

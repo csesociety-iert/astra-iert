@@ -3,7 +3,7 @@ services:
     name: astra-api
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run build --workspace conflict
+    buildCommand: npm ci --include=dev && npm run build --workspace conflict
     startCommand: npm run start
     healthCheckPath: /api/health
     envVars:

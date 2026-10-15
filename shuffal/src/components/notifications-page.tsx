@@ -129,7 +129,7 @@ export function NotificationsPage() {
 
       {isAdmin && (
         <Link className="notifications-admin-link" href="/admin">
-          <Megaphone size={15} aria-hidden="true" /> Publish an announcement
+          <Megaphone size={15} aria-hidden="true" /> Open admin controls
         </Link>
       )}
     </main>

@@ -1,9 +1,8 @@
 import { Router } from "express";
 import { z } from "zod";
-import { env } from "../config/env.js";
+import { adminAccountId, isAdminAccount } from "../lib/admin.js";
 import { requireSession } from "../middleware/require-session.js";
 import { getSession } from "../lib/session.js";
-import type { SessionClaims } from "../lib/session.js";
 import { getSupabaseAdmin } from "../lib/supabase.js";
 
 export const notificationRouter = Router();
@@ -16,19 +15,6 @@ const notificationSchema = z.object({
 const readNotificationsSchema = z.object({
   notification_ids: z.array(z.uuid()).max(100),
 });
-
-function accountId(session: SessionClaims) {
-  return session.accountType === "member"
-    ? session.societyId ?? session.userId
-    : session.userId;
-}
-
-function isAdmin(session: SessionClaims) {
-  const allowedIds = new Set(
-    env.ASTRA_ADMIN_ACCOUNT_IDS.split(",").map((id) => id.trim()).filter(Boolean),
-  );
-  return allowedIds.has(accountId(session));
-}
 
 notificationRouter.get("/", async (request, response, next) => {
   try {
@@ -58,7 +44,7 @@ notificationRouter.get("/", async (request, response, next) => {
         .from("astra_notification_reads")
         .select("notification_id")
         .eq("account_type", session.accountType)
-        .eq("user_id", accountId(session))
+        .eq("user_id", adminAccountId(session))
         .in("notification_id", notificationIds);
       if (readsError) throw readsError;
       readIds = new Set(readNotifications.map(({ notification_id }) => notification_id));
@@ -71,7 +57,7 @@ notificationRouter.get("/", async (request, response, next) => {
     response.json({
       notifications: result,
       unread_count: result.filter(({ is_read }) => !is_read).length,
-      is_admin: isAdmin(session),
+      is_admin: isAdminAccount(session),
       authenticated: true,
     });
   } catch (error) {
@@ -91,7 +77,7 @@ notificationRouter.post("/", requireSession, async (request, response, next) => 
     response.status(401).json({ error: "Please sign in to continue." });
     return;
   }
-  if (!isAdmin(session)) {
+  if (!isAdminAccount(session)) {
     response.status(403).json({ error: "You do not have permission to publish notifications." });
     return;
   }
@@ -101,7 +87,7 @@ notificationRouter.post("/", requireSession, async (request, response, next) => 
       .from("astra_notifications")
       .insert({
         ...parsed.data,
-        created_by: accountId(session),
+        created_by: adminAccountId(session),
       })
       .select("id, title, message, created_at")
       .single();
@@ -132,7 +118,7 @@ notificationRouter.patch("/read", requireSession, async (request, response, next
     const reads = parsed.data.notification_ids.map((notificationId) => ({
       notification_id: notificationId,
       account_type: session.accountType,
-      user_id: accountId(session),
+      user_id: adminAccountId(session),
     }));
     const { data, error } = await getSupabaseAdmin()
       .from("astra_notification_reads")

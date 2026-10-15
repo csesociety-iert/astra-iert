@@ -1,25 +1,85 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, ClipboardList, MessageSquareText, NotebookPen, Sparkles } from "lucide-react";
 import { CodeWorkspace } from "@/components/code-workspace";
 import { PortalShell } from "@/components/portal-shell";
-import { problems } from "@/lib/data";
+import { problems as builtInProblems } from "@/lib/data";
+import type { Problem } from "@/lib/data";
+import { apiRequest } from "@/lib/api";
 
-export default async function ProblemDetailPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const problem = problems.find((entry) => entry.slug === slug);
+export default function ProblemDetailPage() {
+  const params = useParams<{ slug: string }>();
+  const slug = params.slug;
+  const builtInProblem = builtInProblems.find((entry) => entry.slug === slug);
+  const [remoteProblem, setRemoteProblem] = useState<{ slug: string; problem: Problem } | null>(null);
+  const [otherProblems, setOtherProblems] = useState<Problem[]>(builtInProblems);
+  const [loadFailure, setLoadFailure] = useState<{ slug: string; message: string } | null>(null);
+  const problem = builtInProblem ?? (remoteProblem?.slug === slug ? remoteProblem.problem : null);
+  const loading = !builtInProblem && !problem && loadFailure?.slug !== slug;
+  const error = loadFailure?.slug === slug ? loadFailure.message : "";
 
+  useEffect(() => {
+    if (builtInProblem) return;
+    let active = true;
+    apiRequest<{ problem: Problem }>(`/api/problems/${encodeURIComponent(slug)}`)
+      .then(({ problem: storedProblem }) => {
+        if (active) setRemoteProblem({ slug, problem: storedProblem });
+      })
+      .catch((cause: unknown) => {
+        if (active) {
+          setLoadFailure({
+            slug,
+            message: cause instanceof Error ? cause.message : "Could not load this question.",
+          });
+        }
+      });
+    apiRequest<{ problems: Problem[] }>("/api/problems")
+      .then(({ problems: storedProblems }) => {
+        if (!active) return;
+        const storedSlugs = new Set(storedProblems.map(({ slug: itemSlug }) => itemSlug));
+        setOtherProblems([
+          ...storedProblems,
+          ...builtInProblems.filter(({ slug: itemSlug }) => !storedSlugs.has(itemSlug)),
+        ]);
+      })
+      .catch(() => {
+        if (active) {
+          setLoadFailure((current) => current?.slug === slug
+            ? current
+            : { slug, message: "Could not load the question navigation list." });
+        }
+      });
+    return () => { active = false; };
+  }, [builtInProblem, slug]);
+
+  if (loading) {
+    return <PortalShell><main className="container-shell portal-content"><p role="status">Loading question…</p></main></PortalShell>;
+  }
   if (!problem) {
-    notFound();
+    return (
+      <PortalShell>
+        <main className="container-shell portal-content">
+          <section className="admin-access-state">
+            <h1>Question unavailable</h1>
+            <p>{error || "This question could not be found."}</p>
+            <Link href="/problems"><ArrowLeft size={15} aria-hidden="true" /> Back to problem library</Link>
+          </section>
+        </main>
+      </PortalShell>
+    );
   }
 
-  const problemIndex = problems.findIndex((entry) => entry.slug === problem.slug);
-  const previousProblem = problems[problemIndex - 1];
-  const nextProblem = problems[problemIndex + 1];
+  const problemIndex = otherProblems.findIndex((entry) => entry.slug === problem.slug);
+  const previousProblem = otherProblems[problemIndex - 1];
+  const nextProblem = otherProblems[problemIndex + 1];
 
   return (
     <PortalShell>
       <main className="container-shell portal-content problem-solving-page">
+        {error && <p className="mb-4 text-sm text-amber-200" role="status">{error}</p>}
         <div className="problem-solving-toolbar">
           <div className="problem-breadcrumb">
             <Link href="/problems"><ArrowLeft size={15} aria-hidden="true" /> Problem list</Link>
@@ -96,10 +156,12 @@ export default async function ProblemDetailPage({ params }: { params: Promise<{ 
           </section>
 
           <CodeWorkspace
+            key={problem.slug}
             problemSlug={problem.slug}
             starterCode={problem.starterCode}
             sampleInput={problem.sampleInput}
             sampleOutput={problem.sampleOutput}
+            judgeable={Boolean(problem.testCaseCount)}
           />
         </div>
       </main>

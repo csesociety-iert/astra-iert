@@ -49,11 +49,13 @@ export function CodeWorkspace({
   starterCode = pythonStarter,
   sampleInput = "",
   sampleOutput = "[0, 1]",
+  judgeable = false,
 }: {
   problemSlug: string;
   starterCode?: string;
   sampleInput?: string;
   sampleOutput?: string;
+  judgeable?: boolean;
 }) {
   const [sourceCode, setSourceCode] = useState(starterCode);
   const [testCases, setTestCases] = useState<TestCase[]>(() => [
@@ -69,7 +71,7 @@ export function CodeWorkspace({
   const [error, setError] = useState("");
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [submissionResult, setSubmissionResult] = useState<SubmissionResult | null>(null);
-  const canSubmit = problemSlug === "longest-substring-without-repeating-characters";
+  const canSubmit = judgeable || problemSlug === "longest-substring-without-repeating-characters";
   const selectedCase = testCases[activeCase] ?? testCases[0];
 
   function clearResults() {
@@ -118,6 +120,9 @@ export function CodeWorkspace({
         }),
       });
       setSubmissionResult(submitted);
+      if (submitted.accepted) {
+        window.dispatchEvent(new Event("astra:streak-updated"));
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not submit your solution.");
     } finally {
@@ -221,7 +226,7 @@ export function CodeWorkspace({
           </div>
           {error && <span className="problem-result-error" role="alert">{error}</span>}
           {canSubmit && !error && (
-            <span className="problem-test-count">{testCases.length} test cases</span>
+            <span className="problem-test-count">{testCases.length} sample case{testCases.length === 1 ? "" : "s"}</span>
           )}
         </div>
         <div className="problem-test-case-tabs" role="tablist" aria-label="Test cases">

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { ArrowRight, BellRing, Megaphone } from "lucide-react";
+import { ArrowRight, BellRing, BookPlus, Megaphone } from "lucide-react";
+import { AdminProblems } from "@/components/admin-problems";
 import { PortalShell } from "@/components/portal-shell";
 import { apiRequest } from "@/lib/api";
 
@@ -15,6 +16,7 @@ export default function AdminPage() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [activeSection, setActiveSection] = useState<"announcements" | "questions">("questions");
 
   useEffect(() => {
     let active = true;
@@ -64,7 +66,7 @@ export default function AdminPage() {
         <header className="admin-page-heading">
           <p className="notifications-eyebrow"><BellRing size={15} aria-hidden="true" /> ADMINISTRATION</p>
           <h1>Admin controls</h1>
-          <p>Publish announcements for ASTRA members.</p>
+          <p>Manage the problem library and publish announcements for ASTRA members.</p>
         </header>
 
         {loading ? (
@@ -78,6 +80,28 @@ export default function AdminPage() {
             {!authenticated && <Link href="/login">Sign in <ArrowRight size={15} aria-hidden="true" /></Link>}
           </section>
         ) : (
+          <>
+          <div className="admin-section-tabs" role="tablist" aria-label="Admin sections">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSection === "announcements"}
+              className={activeSection === "announcements" ? "is-active" : ""}
+              onClick={() => setActiveSection("announcements")}
+            >
+              <Megaphone size={15} aria-hidden="true" /> Announcements
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeSection === "questions"}
+              className={activeSection === "questions" ? "is-active" : ""}
+              onClick={() => setActiveSection("questions")}
+            >
+              <BookPlus size={15} aria-hidden="true" /> Questions
+            </button>
+          </div>
+          {activeSection === "questions" ? <AdminProblems /> : (
           <div className="admin-notification-layout">
             <section className="admin-notification-card">
               <div className="admin-notification-card-heading">
@@ -128,6 +152,8 @@ export default function AdminPage() {
               <Link href="/notifications">View notifications <ArrowRight size={15} aria-hidden="true" /></Link>
             </aside>
           </div>
+          )}
+          </>
         )}
       </main>
     </PortalShell>
